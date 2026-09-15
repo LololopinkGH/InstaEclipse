@@ -1,0 +1,22 @@
+--- a/app/src/main/java/ps/reso/instaeclipse/master/MasterRuntimeUiHook.java	2026-09-15 21:05:42.494446715 +0000
++++ b/app/src/main/java/ps/reso/instaeclipse/master/MasterRuntimeUiHook.java	2026-09-15 21:05:31.386963971 +0000
+@@ -169,7 +169,7 @@
+             applyMentionStyle(tv, rn);
+             if (MasterFeatureFlags.storyTimeFormat == 0) {
+                 CharSequence original; synchronized (originalTimestampText) { original = originalTimestampText.remove(tv); }
+-                if (original != null && !original.contentEquals(tv.getText())) {
++                if (original != null && !original.toString().contentEquals(tv.getText())) {
+                     try { timestampRewrite.set(true); tv.setText(original); } finally { timestampRewrite.set(false); }
+                 }
+             }
+@@ -192,8 +192,8 @@
+         switch (MasterFeatureFlags.storyTextEffect) {
+             case 1 -> { tv.setShadowLayer(Math.max(2f, 2f*d), 1.5f*d, 1.5f*d, 0xB0000000); restoreSpacing(tv); }
+             case 2 -> { tv.setShadowLayer(Math.max(5f, 5f*d), 0f, 0f, 0xCCFFFFFF); restoreSpacing(tv); }
+-            case 3 -> { tv.clearShadowLayer(); tv.setLetterSpacing(.10f); }
+-            default -> { tv.clearShadowLayer(); restoreSpacing(tv); }
++            case 3 -> { tv.setShadowLayer(0f,0f,0f,0); tv.setLetterSpacing(.10f); }
++            default -> { tv.setShadowLayer(0f,0f,0f,0); restoreSpacing(tv); }
+         }
+     }
+ 
