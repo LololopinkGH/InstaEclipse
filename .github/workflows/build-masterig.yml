@@ -24,7 +24,8 @@ jobs:
         shell: bash
         run: |
           if [ -f masterig/phase3.ready ]; then
-            cat masterig/phase3.part* > /tmp/masterig-phase3.patch
+            cat masterig/phase3.xz.b64.part* | base64 -d | xz -d > /tmp/masterig-phase3.patch
+            echo "b80084334bb69688afc1e9a7301c8489d8f80f19ffbb0e94ddc272fa8cd14ea9  /tmp/masterig-phase3.patch" | sha256sum -c -
             git apply --check /tmp/masterig-phase3.patch
             git apply /tmp/masterig-phase3.patch
           fi
@@ -89,7 +90,8 @@ jobs:
         shell: bash
         run: |
           if [ -f masterig/phase3.ready ]; then
-            cat masterig/phase3.part* > /tmp/masterig-phase3.patch
+            cat masterig/phase3.xz.b64.part* | base64 -d | xz -d > /tmp/masterig-phase3.patch
+            echo "b80084334bb69688afc1e9a7301c8489d8f80f19ffbb0e94ddc272fa8cd14ea9  /tmp/masterig-phase3.patch" | sha256sum -c -
             git apply --check /tmp/masterig-phase3.patch
             git apply /tmp/masterig-phase3.patch
           fi
@@ -144,10 +146,11 @@ jobs:
             echo "No pending overlay to promote."
             exit 0
           fi
-          cat masterig/phase3.part* > /tmp/masterig-phase3.patch
+          cat masterig/phase3.xz.b64.part* | base64 -d | xz -d > /tmp/masterig-phase3.patch
+          echo "b80084334bb69688afc1e9a7301c8489d8f80f19ffbb0e94ddc272fa8cd14ea9  /tmp/masterig-phase3.patch" | sha256sum -c -
           git apply --check /tmp/masterig-phase3.patch
           git apply /tmp/masterig-phase3.patch
-          rm -f masterig/phase3.part* masterig/phase3.ready
+          rm -f masterig/phase3.xz.b64.part* masterig/phase3.ready
           git config user.name "MasterIG CI"
           git config user.email "actions@users.noreply.github.com"
           git add -A
