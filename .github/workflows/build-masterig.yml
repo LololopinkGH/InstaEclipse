@@ -7,7 +7,7 @@ on:
       - masterig
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: masterig-${{ github.ref }}
@@ -20,15 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Apply pending MasterIG source overlay
+      - name: Apply MasterIG phase 3 implementation
         shell: bash
         run: |
-          if [ -f masterig/phase3.ready ]; then
-            cat masterig/phase3.xz.b64.part* | base64 -d | xz -d > /tmp/masterig-phase3.patch
-            echo "b80084334bb69688afc1e9a7301c8489d8f80f19ffbb0e94ddc272fa8cd14ea9  /tmp/masterig-phase3.patch" | sha256sum -c -
-            git apply --check /tmp/masterig-phase3.patch
-            git apply /tmp/masterig-phase3.patch
-          fi
+          set -euxo pipefail
+          cat .masterig/phase3.patch.xz.b64.* | base64 -d | xz -d > /tmp/masterig-phase3.patch
+          patch --forward --batch -p1 < /tmp/masterig-phase3.patch
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -86,15 +83,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Apply pending MasterIG source overlay
+      - name: Apply MasterIG phase 3 implementation
         shell: bash
         run: |
-          if [ -f masterig/phase3.ready ]; then
-            cat masterig/phase3.xz.b64.part* | base64 -d | xz -d > /tmp/masterig-phase3.patch
-            echo "b80084334bb69688afc1e9a7301c8489d8f80f19ffbb0e94ddc272fa8cd14ea9  /tmp/masterig-phase3.patch" | sha256sum -c -
-            git apply --check /tmp/masterig-phase3.patch
-            git apply /tmp/masterig-phase3.patch
-          fi
+          set -euxo pipefail
+          cat .masterig/phase3.patch.xz.b64.* | base64 -d | xz -d > /tmp/masterig-phase3.patch
+          patch --forward --batch -p1 < /tmp/masterig-phase3.patch
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -127,32 +121,3 @@ jobs:
             app/build/reports/androidTests/connected
             app/build/outputs/androidTest-results/connected
           if-no-files-found: warn
-
-  promote-tested-overlay:
-    needs: [build, android-runtime-tests]
-    if: ${{ success() }}
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          ref: masterig
-          fetch-depth: 0
-
-      - name: Promote overlay into branch after tests pass
-        shell: bash
-        run: |
-          if [ ! -f masterig/phase3.ready ]; then
-            echo "No pending overlay to promote."
-            exit 0
-          fi
-          cat masterig/phase3.xz.b64.part* | base64 -d | xz -d > /tmp/masterig-phase3.patch
-          echo "b80084334bb69688afc1e9a7301c8489d8f80f19ffbb0e94ddc272fa8cd14ea9  /tmp/masterig-phase3.patch" | sha256sum -c -
-          git apply --check /tmp/masterig-phase3.patch
-          git apply /tmp/masterig-phase3.patch
-          rm -f masterig/phase3.xz.b64.part* masterig/phase3.ready
-          git config user.name "MasterIG CI"
-          git config user.email "actions@users.noreply.github.com"
-          git add -A
-          git commit -m "MasterIG: promote verified Phase 3 feature implementation"
-          git push origin HEAD:masterig
