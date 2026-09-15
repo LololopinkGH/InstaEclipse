@@ -41,6 +41,12 @@ jobs:
           cat .masterig/phase5.patch.xz.b64.* | base64 -d | xz -d > /tmp/masterig-phase5.patch
           patch --forward --batch -p1 < /tmp/masterig-phase5.patch
 
+      - name: Apply MasterIG phase 5 compile fixes
+        shell: bash
+        run: |
+          set -euxo pipefail
+          patch --forward --batch -p1 < .masterig/phase5-compilefix.patch
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -117,6 +123,12 @@ jobs:
           set -euxo pipefail
           cat .masterig/phase5.patch.xz.b64.* | base64 -d | xz -d > /tmp/masterig-phase5.patch
           patch --forward --batch -p1 < /tmp/masterig-phase5.patch
+
+      - name: Apply MasterIG phase 5 compile fixes
+        shell: bash
+        run: |
+          set -euxo pipefail
+          patch --forward --batch -p1 < .masterig/phase5-compilefix.patch
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
