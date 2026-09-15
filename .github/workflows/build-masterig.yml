@@ -7,7 +7,7 @@ on:
       - masterig
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: masterig-${{ github.ref }}
@@ -20,6 +20,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Apply pending MasterIG source overlay
+        shell: bash
+        run: |
+          if [ -f masterig/phase3.ready ]; then
+            cat masterig/phase3.part* > /tmp/masterig-phase3.patch
+            git apply --check /tmp/masterig-phase3.patch
+            git apply /tmp/masterig-phase3.patch
+          fi
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -31,19 +40,16 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          echo "ANDROID_HOME=${ANDROID_HOME:-}"
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$(command -v sdkmanager)"
-          fi
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Build and test
+      - name: Unit tests and build
         shell: bash
         run: |
           chmod +x ./gradlew
-          ./gradlew --no-daemon testDebugUnitTest assembleDebug --stacktrace
+          ./gradlew --no-daemon clean testDebugUnitTest assembleDebug --stacktrace
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -51,6 +57,14 @@ jobs:
           name: masterig-module-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Upload unit-test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: masterig-unit-test-reports
+          path: app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: warn
 
       - name: Prepare source snapshot
         shell: bash
@@ -64,3 +78,78 @@ jobs:
           name: masterig-source
           path: /tmp/masterig-source.tgz
           if-no-files-found: error
+
+  android-runtime-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Apply pending MasterIG source overlay
+        shell: bash
+        run: |
+          if [ -f masterig/phase3.ready ]; then
+            cat masterig/phase3.part* > /tmp/masterig-phase3.patch
+            git apply --check /tmp/masterig-phase3.patch
+            git apply /tmp/masterig-phase3.patch
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Android emulator runtime tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: ./gradlew --no-daemon connectedDebugAndroidTest --stacktrace
+
+      - name: Upload instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: masterig-android-runtime-test-reports
+          path: |
+            app/build/reports/androidTests/connected
+            app/build/outputs/androidTest-results/connected
+          if-no-files-found: warn
+
+  promote-tested-overlay:
+    needs: [build, android-runtime-tests]
+    if: ${{ success() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: masterig
+          fetch-depth: 0
+
+      - name: Promote overlay into branch after tests pass
+        shell: bash
+        run: |
+          if [ ! -f masterig/phase3.ready ]; then
+            echo "No pending overlay to promote."
+            exit 0
+          fi
+          cat masterig/phase3.part* > /tmp/masterig-phase3.patch
+          git apply --check /tmp/masterig-phase3.patch
+          git apply /tmp/masterig-phase3.patch
+          rm -f masterig/phase3.part* masterig/phase3.ready
+          git config user.name "MasterIG CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "MasterIG: promote verified Phase 3 feature implementation"
+          git push origin HEAD:masterig
